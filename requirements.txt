@@ -1,0 +1,6 @@
+progressbar
+numpy
+matplotlib
+torch
+torchvision
+tensorboard
