@@ -9,6 +9,7 @@ class LabeledDataset(Dataset):
         Point to the root directory of the dataset and the csv
         files containing the list of images and their corresponding labels.
 
+        Input:
         root_dir: Root directory of the dataset
         csv_files: List of csv files containing the list of images and their corresponding labels
         transform: Optional transform to be applied on a sample
