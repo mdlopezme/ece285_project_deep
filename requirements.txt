@@ -4,3 +4,6 @@ matplotlib
 torch
 torchvision
 tensorboard
+pytorch-ignite
+torchinfo
+tqdm
