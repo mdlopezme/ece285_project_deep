@@ -56,10 +56,10 @@ class LabeledDataset(Dataset):
         path_to_image_long = os.path.join(self.root_dir, long_exposure)
         
         with rawpy.imread(path_to_image_short) as raw:
-            image_short = raw.raw_image_visible.astype('float32')
+            image_short = raw.postprocess()
 
         with rawpy.imread(path_to_image_long) as raw:
-            image_long = raw.raw_image_visible.astype('float32')
+            image_long = raw.postprocess()
         
         if self.transform is not None:
             image_short = self.transform(image_short)
@@ -71,10 +71,19 @@ class LabeledDataset(Dataset):
         return image_short, image_long, label, iso, fstop
     
 if __name__ == '__main__':
+    import matplotlib.pyplot as plt
     dataset = LabeledDataset('dataset', 'dataset/Sony_train_list.txt', 'dataset/Fuji_train_list.txt')
 
-    print(dataset[0][0].shape)
-    print(dataset[0][1].shape)
+    image = dataset[0][0]
+    image2 = dataset[0][1]
+    print(f'type: {type(image)}, shape: {image.shape}')   
     print(dataset[0][2])
     print(dataset[0][3])
     print(dataset[0][4])
+
+    # Show images
+    plt.figure()
+    plt.imshow(image)
+    plt.figure()
+    plt.imshow(image2)
+    plt.show()
