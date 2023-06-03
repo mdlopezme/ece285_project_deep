@@ -56,10 +56,10 @@ class LabeledDataset(Dataset):
         path_to_image_long = os.path.join(self.root_dir, long_exposure)
         
         with rawpy.imread(path_to_image_short) as raw:
-            image_short = raw.raw_image_visible.astype('int16')
+            image_short = raw.raw_image_visible.astype('float32')
 
         with rawpy.imread(path_to_image_long) as raw:
-            image_long = raw.raw_image_visible.astype('int16')
+            image_long = raw.raw_image_visible.astype('float32')
         
         if self.transform is not None:
             image_short = self.transform(image_short)
