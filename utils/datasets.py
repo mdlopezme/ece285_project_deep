@@ -2,6 +2,7 @@ from torch.utils.data import DataLoader, Dataset
 import pandas as pd
 import os
 import rawpy
+import numpy as np
 
 class LabeledDataset(Dataset):
     def __init__(self, root_dir, *csv_files, transform=None):
@@ -56,10 +57,10 @@ class LabeledDataset(Dataset):
         path_to_image_long = os.path.join(self.root_dir, long_exposure)
         
         with rawpy.imread(path_to_image_short) as raw:
-            image_short = raw.postprocess()
+            image_short = raw.raw_image_visible.astype(np.float32)
 
         with rawpy.imread(path_to_image_long) as raw:
-            image_long = raw.postprocess()
+            image_long = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16).astype(np.float32)
 
         # Ratio of image lenght to width, before transform
         ratio = image_short.shape[1] / image_short.shape[0]
@@ -71,7 +72,6 @@ class LabeledDataset(Dataset):
 
         # Extract folder name from path
         label = os.path.dirname(short_exposure).split('/')[1]
-
         
 
         return image_short, image_long, ratio, label, iso, fstop
