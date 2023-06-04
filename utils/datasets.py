@@ -60,26 +60,43 @@ class LabeledDataset(Dataset):
 
         with rawpy.imread(path_to_image_long) as raw:
             image_long = raw.postprocess()
+
+        # Ratio of image lenght to width, before transform
+        ratio = image_short.shape[1] / image_short.shape[0]
         
         if self.transform is not None:
+            # BUG: If transform includes random crop, then the images will not be aligned
             image_short = self.transform(image_short)
             image_long = self.transform(image_long)
 
         # Extract folder name from path
         label = os.path.dirname(short_exposure).split('/')[1]
 
-        return image_short, image_long, label, iso, fstop
+        
+
+        return image_short, image_long, ratio, label, iso, fstop
     
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
-    dataset = LabeledDataset('dataset', 'dataset/Sony_train_list.txt', 'dataset/Fuji_train_list.txt')
+    from torchvision import transforms
+    transform = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.Lambda(lambda x: x.permute(1, 2, 0)),
+    ])
+    csv_files = [
+        'dataset/Sony_train_list.txt',
+        'dataset/Fuji_train_list.txt'
+        ]
+    dataset = LabeledDataset('dataset',*csv_files, transform=transform)
 
-    image = dataset[0][0]
-    image2 = dataset[0][1]
+    data = dataset[0]
+    image = data[0]
+    image2 = data[1]
     print(f'type: {type(image)}, shape: {image.shape}')   
-    print(dataset[0][2])
-    print(dataset[0][3])
-    print(dataset[0][4])
+    print(data[2])
+    print(data[3])
+    print(data[4])
+    print(data[5])
 
     # Show images
     plt.figure()
