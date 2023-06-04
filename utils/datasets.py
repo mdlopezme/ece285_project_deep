@@ -3,6 +3,10 @@ import pandas as pd
 import os
 import rawpy
 import numpy as np
+import torch
+import torchvision.transforms as transforms
+import multiprocessing as mp
+import ctypes
 
 class LabeledDataset(Dataset):
     def __init__(self, root_dir, *csv_files, transform=None):
@@ -44,6 +48,12 @@ class LabeledDataset(Dataset):
         self.iso = self.df.iloc[:, 2]
         self.fstop = self.df.iloc[:, 3]
 
+        nb_samples, c, h, w = (300, 3, 2848, 4256)
+        shared_array_base = mp.Array(ctypes.c_uint16, nb_samples*c*h*w)
+        shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
+        self.shared_long_buff = shared_array.reshape(nb_samples, h, w, c)
+        self.shared_long_buff_index = mp.Array(ctypes.c_bool, nb_samples)
+
     def __len__(self):
         return len(self.df)
     
@@ -55,26 +65,35 @@ class LabeledDataset(Dataset):
 
         path_to_image_short = os.path.join(self.root_dir, short_exposure)
         path_to_image_long = os.path.join(self.root_dir, long_exposure)
+
+        in_exposure = float(os.path.basename(path_to_image_short)[9:-5])
+        gt_exposure = float(os.path.basename(path_to_image_long)[9:-5])
+        exposure_ratio = min(gt_exposure / in_exposure, 300)
         
         with rawpy.imread(path_to_image_short) as raw:
             image_short = raw.raw_image_visible.astype(np.float32)
 
-        with rawpy.imread(path_to_image_long) as raw:
-            image_long = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16).astype(np.float32)
+        long_index = int(os.path.basename(path_to_image_long)[:5])
+        if not self.shared_long_buff_index[long_index]:
+            with rawpy.imread(path_to_image_long) as raw:
+                long_post = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16)
+                self.shared_long_buff[long_index] = np.copy(long_post.astype(np.uint16))
+                self.shared_long_buff_index[long_index] = True
+                del long_post
+
+        image_long = self.shared_long_buff[long_index].astype(np.float32)
 
         # Ratio of image lenght to width, before transform
         ratio = image_short.shape[1] / image_short.shape[0]
-        
+
         if self.transform is not None:
-            # BUG: If transform includes random crop, then the images will not be aligned
             image_short = self.transform(image_short)
             image_long = self.transform(image_long)
 
         # Extract folder name from path
         label = os.path.dirname(short_exposure).split('/')[1]
-        
 
-        return image_short, image_long, ratio, label, iso, fstop
+        return image_short, image_long, ratio, label, exposure_ratio, iso, fstop
     
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
