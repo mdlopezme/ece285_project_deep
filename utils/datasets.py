@@ -73,7 +73,7 @@ class LabeledDataset(Dataset):
         with rawpy.imread(path_to_image_short) as raw:
             image_short = raw.raw_image_visible.astype(np.float32)
 
-        long_index = int(os.path.basename(path_to_image_long)[:5])
+        long_index = int(os.path.basename(path_to_image_long)[2:5])
         if not self.shared_long_buff_index[long_index]:
             with rawpy.imread(path_to_image_long) as raw:
                 long_post = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16)
@@ -94,6 +94,18 @@ class LabeledDataset(Dataset):
         label = os.path.dirname(short_exposure).split('/')[1]
 
         return image_short, image_long, ratio, label, exposure_ratio, iso, fstop
+    
+    def prime_buffer(self):
+        for index in range(len(self.df)):
+            long_exposure = self.long_exposure[index]
+            path_to_image_long = os.path.join(self.root_dir, long_exposure)
+            long_index = int(os.path.basename(path_to_image_long)[2:5])
+            if not self.shared_long_buff_index[long_index]:
+                with rawpy.imread(path_to_image_long) as raw:
+                    long_post = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16)
+                    self.shared_long_buff[long_index] = np.copy(long_post.astype(np.uint16))
+                    self.shared_long_buff_index[long_index] = True
+                    del long_post
     
 if __name__ == '__main__':
     import matplotlib.pyplot as plt
