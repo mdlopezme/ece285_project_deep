@@ -7,9 +7,11 @@ import torch
 import torchvision.transforms as transforms
 import multiprocessing as mp
 import ctypes
+from torch.profiler import profile, record_function, ProfilerActivity
+from . import preprocess
 
 class LabeledDataset(Dataset):
-    def __init__(self, root_dir, *csv_files, transform=None):
+    def __init__(self, root_dir, *csv_files, transform=None, training=True, crop_size=512):
         """
         Point to the root directory of the dataset and the csv
         files containing the list of images and their corresponding labels.
@@ -54,10 +56,14 @@ class LabeledDataset(Dataset):
         self.shared_long_buff = shared_array.reshape(nb_samples, h, w, c)
         self.shared_long_buff_index = mp.Array(ctypes.c_bool, nb_samples)
 
+        self.training = training
+        self.crop_size = crop_size
+
     def __len__(self):
         return len(self.df)
     
     def __getitem__(self, index):
+        # with record_function("stage 1"):
         short_exposure = self.short_exposure[index]
         long_exposure = self.long_exposure[index]
         iso = self.iso[index]
@@ -70,9 +76,12 @@ class LabeledDataset(Dataset):
         gt_exposure = float(os.path.basename(path_to_image_long)[9:-5])
         exposure_ratio = min(gt_exposure / in_exposure, 300)
         
+        # with record_function("read short"):
         with rawpy.imread(path_to_image_short) as raw:
+            image_short_raw = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16).astype(np.float32)
             image_short = raw.raw_image_visible.astype(np.float32)
 
+        # with record_function("read long"):
         long_index = int(os.path.basename(path_to_image_long)[2:5])
         if not self.shared_long_buff_index[long_index]:
             with rawpy.imread(path_to_image_long) as raw:
@@ -93,7 +102,13 @@ class LabeledDataset(Dataset):
         # Extract folder name from path
         label = os.path.dirname(short_exposure).split('/')[1]
 
-        return image_short, image_long, ratio, label, exposure_ratio, iso, fstop
+        if self.training:
+            image_short = preprocess.pack_sony_raw(image_short)
+            patch_short, patch_long = preprocess.random_crop(image_short, image_long, self.crop_size)
+            return patch_short, patch_long, ratio, label, exposure_ratio, iso, fstop
+        
+        else:
+            return image_short, image_long, ratio, label, exposure_ratio, iso, fstop, image_short_raw
     
     def prime_buffer(self):
         for index in range(len(self.df)):
