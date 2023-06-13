@@ -51,7 +51,7 @@ class LabeledDataset(Dataset):
         self.fstop = self.df.iloc[:, 3]
 
         # NOTE: Ensure the file list is ordered!!
-        path_to_image_long = os.path.join(self.root_dir, self.long_exposure[-1])
+        path_to_image_long = os.path.join(self.root_dir, self.long_exposure[len(self.df)-1])
         nb_samples = int(os.path.basename(path_to_image_long)[2:5]) + 1
 
         c, h, w = (3, 2848, 4256)
