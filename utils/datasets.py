@@ -84,7 +84,7 @@ class LabeledDataset(Dataset):
         
         # with record_function("read short"):
         with rawpy.imread(path_to_image_short) as raw:
-            if self.training:
+            if not self.training:
                 image_short_raw = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16).astype(np.float32)
             image_short = raw.raw_image_visible.astype(np.float32)
 
