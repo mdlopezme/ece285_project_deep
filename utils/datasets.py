@@ -11,7 +11,7 @@ from torch.profiler import profile, record_function, ProfilerActivity
 from . import preprocess
 
 class LabeledDataset(Dataset):
-    def __init__(self, root_dir, *csv_files, transform=None, training=False, crop_size=512):
+    def __init__(self, root_dir, *csv_files, transform=None, training=False, save_gpu_memory=True, crop_size=512):
         """
         Point to the root directory of the dataset and the csv
         files containing the list of images and their corresponding labels.
@@ -62,6 +62,7 @@ class LabeledDataset(Dataset):
         self.shared_long_buff_index = mp.Array(ctypes.c_bool, nb_samples)
 
         self.training = training
+        self.save_gpu_memory = save_gpu_memory
         self.crop_size = crop_size
 
     def __len__(self):
@@ -83,7 +84,8 @@ class LabeledDataset(Dataset):
         
         # with record_function("read short"):
         with rawpy.imread(path_to_image_short) as raw:
-            image_short_raw = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16).astype(np.float32)
+            if self.training:
+                image_short_raw = raw.postprocess(use_camera_wb=True, half_size=False, no_auto_bright=True, output_bps=16).astype(np.float32)
             image_short = raw.raw_image_visible.astype(np.float32)
 
         # with record_function("read long"):
@@ -108,9 +110,12 @@ class LabeledDataset(Dataset):
         label = os.path.dirname(short_exposure).split('/')[1]
 
         if self.training:
-            image_short = preprocess.pack_sony_raw(image_short)
-            patch_short, patch_long = preprocess.random_crop(image_short, image_long, self.crop_size)
-            return patch_short, patch_long, ratio, label, exposure_ratio, iso, fstop
+            if self.save_gpu_memory:
+                # Data Preprocessing will happen on CPU
+                # Will slow down if cpu is not powerful enough
+                image_short = preprocess.pack_sony_raw(image_short)
+                image_short, image_long = preprocess.random_crop(image_short, image_long, self.crop_size)
+            return image_short, image_long, ratio, label, exposure_ratio, iso, fstop
         
         else:
             return image_short, image_long, ratio, label, exposure_ratio, iso, fstop, image_short_raw
