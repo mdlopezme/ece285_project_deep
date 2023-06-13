@@ -53,6 +53,7 @@ class LabeledDataset(Dataset):
         # NOTE: Ensure the file list is ordered!!
         path_to_image_long = os.path.join(self.root_dir, self.long_exposure[len(self.df)-1])
         nb_samples = int(os.path.basename(path_to_image_long)[2:5]) + 1
+        print("Creating buffer for {} images".format(nb_samples))
 
         c, h, w = (3, 2848, 4256)
         shared_array_base = mp.Array(ctypes.c_uint16, nb_samples*c*h*w)
