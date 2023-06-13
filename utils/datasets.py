@@ -11,7 +11,7 @@ from torch.profiler import profile, record_function, ProfilerActivity
 from . import preprocess
 
 class LabeledDataset(Dataset):
-    def __init__(self, root_dir, *csv_files, transform=None, training=True, crop_size=512):
+    def __init__(self, root_dir, *csv_files, transform=None, training=False, crop_size=512):
         """
         Point to the root directory of the dataset and the csv
         files containing the list of images and their corresponding labels.
@@ -50,7 +50,11 @@ class LabeledDataset(Dataset):
         self.iso = self.df.iloc[:, 2]
         self.fstop = self.df.iloc[:, 3]
 
-        nb_samples, c, h, w = (300, 3, 2848, 4256)
+        # NOTE: Ensure the file list is ordered!!
+        path_to_image_long = os.path.join(self.root_dir, self.long_exposure[-1])
+        nb_samples = int(os.path.basename(path_to_image_long)[2:5]) + 1
+
+        c, h, w = (3, 2848, 4256)
         shared_array_base = mp.Array(ctypes.c_uint16, nb_samples*c*h*w)
         shared_array = np.ctypeslib.as_array(shared_array_base.get_obj())
         self.shared_long_buff = shared_array.reshape(nb_samples, h, w, c)
